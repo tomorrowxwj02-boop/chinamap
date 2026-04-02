@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中国34省围栏可视化</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/china-map-js@1.0.0/china-map.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        select {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 150px;
+        }
+
+        select:hover {
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+        }
+
+        #map-container {
+            width: 100%;
+            height: 700px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #china-map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .info-panel {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-panel h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .province-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .province-item {
+            padding: 8px 12px;
+            background: white;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #666;
+            border: 1px solid #e0e0e0;
+        }
+
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            margin-top: 10px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            transition: width 0.3s;
+            width: 0%;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            max-width: 250px;
+        }
+
+        .legend h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🇨🇳 中国34省围栏可视化系统</h1>
+        
+        <div class="controls">
+            <select id="province-select">
+                <option value="">-- 选择省份 --</option>
+            </select>
+            <button class="btn-primary" onclick="selectProvince()">切换省份</button>
+            <button class="btn-success" onclick="captureAllScreenshots()">生成所有截图</button>
+            <button class="btn-primary" onclick="resetMap()">重置视图</button>
+        </div>
+
+        <div id="map-container">
+            <div id="china-map"></div>
+        </div>
+
+        <div class="info-panel">
+            <h3>📊 省份信息</h3>
+            <p id="province-info">请选择一个省份查看详细信息</p>
+            <div class="province-list" id="province-list"></div>
+        </div>
+
+        <div class="status" id="status"></div>
+        <div class="progress-bar" id="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+    </div>
+
+    <script>
+        // 34个省份列表
+        const provinces = [
+            { name: '北京', code: 'beijing' },
+            { name: '天津', code: 'tianjin' },
+            { name: '河北', code: 'hebei' },
+            { name: '山西', code: 'shanxi' },
+            { name: '内蒙古', code: 'neimenggu' },
+            { name: '辽宁', code: 'liaoning' },
+            { name: '吉林', code: 'jilin' },
+            { name: '黑龙江', code: 'heilongjiang' },
+            { name: '上海', code: 'shanghai' },
+            { name: '江苏', code: 'jiangsu' },
+            { name: '浙江', code: 'zhejiang' },
+            { name: '安徽', code: 'anhui' },
+            { name: '福建', code: 'fujian' },
+            { name: '江西', code: 'jiangxi' },
+            { name: '山东', code: 'shandong' },
+            { name: '河南', code: 'henan' },
+            { name: '湖北', code: 'hubei' },
+            { name: '湖南', code: 'hunan' },
+            { name: '广东', code: 'guangdong' },
+            { name: '广西', code: 'guangxi' },
+            { name: '海南', code: 'hainan' },
+            { name: '重庆', code: 'chongqing' },
+            { name: '四川', code: 'sichuan' },
+            { name: '贵州', code: 'guizhou' },
+            { name: '云南', code: 'yunnan' },
+            { name: '西藏', code: 'xizang' },
+            { name: '陕西', code: 'shaanxi' },
+            { name: '甘肃', code: 'gansu' },
+            { name: '青海', code: 'qinghai' },
+            { name: '宁夏', code: 'ningxia' },
+            { name: '新疆', code: 'xinjiang' },
+            { name: '香港', code: 'xianggang' },
+            { name: '澳门', code: 'aomen' },
+            { name: '台湾', code: 'taiwan' }
+        ];
+
+        // 为每个省份生成随机颜色
+        const colors = provinces.map(() => {
+            const hue = Math.floor(Math.random() * 360);
+            const saturation = Math.floor(Math.random() * 30) + 60; // 60-90%
+            const lightness = Math.floor(Math.random() * 20) + 40; // 40-60%
+            return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+        });
+
+        // 模拟省份面积数据（单位：平方公里）
+        const provinceAreas = {
+            '北京': 16410,
+            '天津': 11946,
+            '河北': 187693,
+            '山西': 156298,
+            '内蒙古': 1183000,
+            '辽宁': 148000,
+            '吉林': 187400,
+            '黑龙江': 473000,
+            '上海': 6340,
+            '江苏': 107200,
+            '浙江': 105500,
+            '安徽': 139400,
+            '福建': 121400,
+            '江西': 166900,
+            '山东': 157100,
+            '河南': 167000,
+            '湖北': 185900,
+            '湖南': 211800,
+            '广东': 179800,
+            '广西': 237600,
+            '海南': 35400,
+            '重庆': 82400,
+            '四川': 486000,
+            '贵州': 176100,
+            '云南': 394000,
+            '西藏': 1228400,
+            '陕西': 205600,
+            '甘肃': 425800,
+            '青海': 717000,
+            '宁夏': 66400,
+            '新疆': 1664900,
+            '香港': 1110,
+            '澳门': 33,
+            '台湾': 36193
+        };
+
+        let myChart = null;
+        let currentProvince = null;
+        let screenshotQueue = [];
+
+        // 初始化地图
+        function initMap() {
+            myChart = echarts.init(document.getElementById('china-map'));
+            
+            // 显示加载状态
+            myChart.showLoading();
+
+            // 加载中国地图数据
+            fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
+                .then(response => response.json())
+                .then(data => {
+                    myChart.hideLoading();
+                    echarts.registerMap('china', data);
+                    renderMap();
+                })
+                .catch(error => {
+                    myChart.hideLoading();
+                    console.error('地图数据加载失败:', error);
+                    alert('地图数据加载失败，请检查网络连接');
+                });
+
+            // 窗口大小改变时重新渲染
+            window.addEventListener('resize', () => {
+                myChart.resize();
+            });
+        }
+
+        // 渲染地图
+        function renderMap(provinceCode = null) {
+            const option = {
+                tooltip: {
+                    trigger: 'item',
+                    formatter: function(params) {
+                        if (params.data) {
+                            const area = provinceAreas[params.name] || '未知';
+                            return `
+                                <div style="padding: 10px;">
+                                    <strong>${params.name}</strong><br/>
+                                    面积: ${area.toLocaleString()} km²<br/>
+                                    <span style="display:inline-block;width:15px;height:15px;background:${params.data.itemStyle.color};margin-right:5px;"></span>
+                                    标识颜色
+                                </div>
+                            `;
+                        }
+                        return params.name;
+                    }
+                },
+                visualMap: {
+                    show: false,
+                    min: 0,
+                    max: Math.max(...Object.values(provinceAreas)),
+                    inRange: {
+                        color: colors
+                    }
+                },
+                series: [
+                    {
+                        name: '中国',
+                        type: 'map',
+                        map: 'china',
+                        roam: true,
+                        scaleLimit: {
+                            min: 0.5,
+                            max: 5
+                        },
+                        emphasis: {
+                            label: {
+                                show: true,
+                                fontSize: 14,
+                                fontWeight: 'bold'
+                            },
+                            itemStyle: {
+                                areaColor: '#f4d03f',
+                                shadowBlur: 10,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        },
+                        select: {
+                            itemStyle: {
+                                areaColor: '#f4d03f'
+                            }
+                        },
+                        label: {
+                            show: true,
+                            fontSize: 11,
+                            color: '#333'
+                        },
+                        data: provinces.map((province, index) => ({
+                            name: province.name,
+                            value: provinceAreas[province.name] || 0,
+                            itemStyle: {
+                                color: colors[index],
+                                borderColor: '#fff',
+                                borderWidth: 1
+                            }
+                        }))
+                    }
+                ]
+            };
+
+            myChart.setOption(option);
+
+            // 如果选择了省份，聚焦到该省份
+            if (provinceCode) {
+                const province = provinces.find(p => p.code === provinceCode);
+                if (province) {
+                    setTimeout(() => {
+                        focusOnProvince(province.name);
+                    }, 100);
+                }
+            }
+        }
+
+        // 聚焦到指定省份
+        function focusOnProvince(provinceName) {
+            // 查找省份的中心点（简化版本，实际应该从GeoJSON中获取）
+            const centerPoints = {
+                '北京': [116.4074, 39.9042],
+                '天津': [117.2009, 39.0842],
+                '河北': [114.5149, 38.0423],
+                '山西': [112.5489, 37.8706],
+                '内蒙古': [111.7492, 40.8426],
+                '辽宁': [123.4315, 41.8057],
+                '吉林': [125.3235, 43.8171],
+                '黑龙江': [126.6618, 45.7423],
+                '上海': [121.4737, 31.2304],
+                '江苏': [118.7969, 32.0603],
+                '浙江': [120.1534, 30.2875],
+                '安徽': [117.2272, 31.8206],
+                '福建': [119.2965, 26.0745],
+                '江西': [115.8922, 28.6765],
+                '山东': [117.0009, 36.6758],
+                '河南': [113.6253, 34.7466],
+                '湖北': [114.2984, 30.5844],
+                '湖南': [112.9388, 28.2282],
+                '广东': [113.2644, 23.1291],
+                '广西': [108.3200, 22.8240],
+                '海南': [110.3312, 20.0311],
+                '重庆': [106.5516, 29.5630],
+                '四川': [104.0665, 30.5723],
+                '贵州': [106.7135, 26.5783],
+                '云南': [102.7103, 25.0446],
+                '西藏': [91.1174, 29.6469],
+                '陕西': [108.9402, 34.3416],
+                '甘肃': [103.8343, 36.0611],
+                '青海': [101.7782, 36.6171],
+                '宁夏': [106.2309, 38.4872],
+                '新疆': [87.6168, 43.8256],
+                '香港': [114.1694, 22.3193],
+                '澳门': [113.5491, 22.1987],
+                '台湾': [121.5654, 25.0330]
+            };
+
+            const center = centerPoints[provinceName];
+            if (center) {
+                myChart.setOption({
+                    geo: {
+                        center: center,
+                        zoom: 3
+                    }
+                });
+
+                // 更新信息面板
+                const area = provinceAreas[provinceName] || '未知';
+                document.getElementById('province-info').innerHTML = `
+                    <strong>省份名称:</strong> ${provinceName}<br/>
+                    <strong>省份面积:</strong> ${area.toLocaleString()} km²<br/>
+                    <strong>中心坐标:</strong> [${center[0]}, ${center[1]}]
+                `;
+
+                currentProvince = provinceName;
+            }
+        }
+
+        // 选择省份
+        function selectProvince() {
+            const select = document.getElementById('province-select');
+            const provinceCode = select.value;
+            
+            if (provinceCode) {
+                renderMap(provinceCode);
+            } else {
+                alert('请先选择一个省份');
+            }
+        }
+
+        // 重置视图
+        function resetMap() {
+            myChart.setOption({
+                geo: {
+                    center: [104.1954, 35.8617],
+                    zoom: 1
+                }
+            });
+            document.getElementById('province-info').innerHTML = '请选择一个省份查看详细信息';
+            document.getElementById('province-select').value = '';
+            currentProvince = null;
+        }
+
+        // 初始化省份下拉列表
+        function initProvinceSelect() {
+            const select = document.getElementById('province-select');
+            const list = document.getElementById('province-list');
+            
+            provinces.forEach((province, index) => {
+                // 添加到下拉列表
+                const option = document.createElement('option');
+                option.value = province.code;
+                option.textContent = `${index + 1}. ${province.name}`;
+                select.appendChild(option);
+
+                // 添加到信息面板
+                const item = document.createElement('div');
+                item.className = 'province-item';
+                const area = provinceAreas[province.name] || '未知';
+                item.innerHTML = `
+                    <span style="display:inline-block;width:12px;height:12px;background:${colors[index]};margin-right:5px;"></span>
+                    ${province.name}: ${area.toLocaleString()} km²
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // 捕获所有截图
+        async function captureAllScreenshots() {
+            const status = document.getElementById('status');
+            const progressBar = document.getElementById('progress-bar');
+            const progressFill = document.getElementById('progress-fill');
+            
+            status.style.display = 'block';
+            progressBar.style.display = 'block';
+            status.textContent = '开始生成截图...';
+            
+            // 先捕获全国地图
+            resetMap();
+            await sleep(1000);
+            await captureScreenshot('00_全国地图.png');
+            
+            // 逐个捕获省份地图
+            for (let i = 0; i < provinces.length; i++) {
+                const province = provinces[i];
+                status.textContent = `正在生成: ${province.name} (${i + 1}/${provinces.length})`;
+                
+                // 选择省份
+                document.getElementById('province-select').value = province.code;
+                renderMap(province.code);
+                
+                // 等待地图渲染完成
+                await sleep(1500);
+                
+                // 捕获截图
+                const filename = `${String(i + 1).padStart(2, '0')}_${province.name}.png`;
+                await captureScreenshot(filename);
+                
+                // 更新进度条
+                const progress = ((i + 2) / (provinces.length + 1)) * 100;
+                progressFill.style.width = `${progress}%`;
+            }
+            
+            status.textContent = '✅ 所有截图生成完成！共 35 张';
+            status.style.background = '#d4edda';
+            status.style.borderColor = '#28a745';
+            
+            setTimeout(() => {
+                resetMap();
+            }, 2000);
+        }
+
+        // 捕获单张截图
+        async function captureScreenshot(filename) {
+            try {
+                const canvas = await html2canvas(document.getElementById('map-container'), {
+                    backgroundColor: '#ffffff',
+                    scale: 2, // 高清截图
+                    logging: false
+                });
+                
+                // 转换为图片并下载
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                });
+                
+                console.log(`截图已保存: ${filename}`);
+            } catch (error) {
+                console.error(`截图失败 ${filename}:`, error);
+            }
+        }
+
+        // 辅助函数：延迟
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // 页面加载完成后初始化
+        window.onload = function() {
+            initProvinceSelect();
+            initMap();
+        };
+    </script>
+</body>
+</html>
